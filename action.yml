@@ -1,0 +1,69 @@
+name: "Composite Action OpenFortiVPN"
+description: "Composite Action OpenFortiVPN"
+inputs:
+  vpn_host:
+    description: "VPN host"
+    required: true
+    default: "vpn.example.com"
+  vpn_port:
+    description: "VPN port"
+    required: true
+    default: "1194"
+  vpn_username:
+    description: "VPN username"
+    required: true
+    default: "vpnuser"
+  vpn_password:
+    description: "VPN password"
+    required: true
+    default: "vpnpassword"
+  vpn_trusted_cert:
+    description: "VPN trusted cert"
+    required: true
+    default: "vpntrustedcert"
+  vpn_persistent:
+    description: "VPN persistent"
+    required: true
+    default: "5"
+  check_url:
+    description: "URL to check"
+    required: true
+    default: "https://example.com"
+  check_port:
+    description: "Port to check"
+    required: true
+    default: "443"
+  check_sleep:
+    description: "Sleep time between checks"
+    required: true
+    default: "5"
+  check_retries:
+    description: "Number of retries"
+    required: true
+    default: "2"
+outputs:
+  isConnected:
+    description: "Is connected"
+    value: ${{ steps.check-and-reconnect.outputs.isConnected }}
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        sudo apt-get update
+        sudo apt-get install -y openfortivpn
+      shell: bash
+    - run: sudo openfortivpn ${{ inputs.vpn_host }}:${{ inputs.vpn_port }} -u ${{ inputs.vpn_username }} -p ${{ inputs.vpn_password }} --trusted-cert ${{ inputs.vpn_trusted_cert }} --persistent=5 &
+      shell: bash
+    - run: echo "${{ github.action_path }}" >> $GITHUB_PATH
+      shell: bash
+    - id: check-and-reconnect
+      run: check.sh ${{ inputs.check_url }} ${{ inputs.check_port }} ${{ inputs.check_sleep }} ${{ inputs.check_retries }} ${{ inputs.vpn_host }} ${{ inputs.vpn_port }} ${{ inputs.vpn_username }} ${{ inputs.vpn_password }} ${{ inputs.vpn_trusted_cert }}
+      shell: bash
+    - run: |
+        if [[ "${{ steps.check-and-reconnect.outputs.isConnected }}" == "false" ]]; then
+          echo "VPN connection failed"
+          exit 1
+        else
+          echo "VPN connection successful"
+        fi
+      shell: bash
